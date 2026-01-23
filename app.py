@@ -35,12 +35,11 @@ st.markdown("""
         background-color: #F8D7DA;
         border-left: 5px solid #DC3545;
     }
-    .stats-card {
-        background-color: #E9ECEF;
+    .progress-container {
+        margin: 2rem 0;
         padding: 1rem;
+        background-color: #F8F9FA;
         border-radius: 10px;
-        text-align: center;
-        margin: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -50,10 +49,11 @@ if 'quiz_state' not in st.session_state:
     st.session_state.quiz_state = {
         'current_question': 0,
         'selected_answers': {},
-        'submitted': False,
-        'score': 0,
+        'submitted_answers': {},
         'questions_df': None,
-        'custom_mode': False
+        'custom_mode': False,
+        'total_questions': 0,
+        'answered_count': 0
     }
 
 # Pasta de questões
@@ -73,11 +73,11 @@ def load_questions(file_path, custom_mode=False):
         st.session_state.quiz_state = {
             'current_question': 0,
             'selected_answers': {},
-            'submitted': False,
-            'score': 0,
+            'submitted_answers': {},
             'questions_df': df,
             'custom_mode': custom_mode,
-            'total_questions': len(df)
+            'total_questions': len(df),
+            'answered_count': 0
         }
         return df
     except Exception as e:
@@ -90,6 +90,10 @@ def display_question(df, index):
     
     st.markdown(f"### Questão {index + 1} de {len(df)}")
     
+    # Barra de progresso
+    progress_value = (index + 1) / len(df)
+    st.progress(progress_value, text=f"Progresso: {index + 1}/{len(df)} questões")
+    
     # Card da questão
     st.markdown(f'<div class="question-card">', unsafe_allow_html=True)
     st.markdown(f"**{question['question']}**")
@@ -99,7 +103,7 @@ def display_question(df, index):
     option_labels = ['A', 'B', 'C', 'D']
     
     # Verificar se já há resposta selecionada
-    selected_key = f"q{index}_selected"
+    selected_key = f"q{index}"
     if selected_key not in st.session_state.quiz_state['selected_answers']:
         st.session_state.quiz_state['selected_answers'][selected_key] = None
     
@@ -111,85 +115,112 @@ def display_question(df, index):
         with col:
             # Criar uma chave única para cada botão de rádio
             if st.button(
-                f"{label}) {question[opt]}",
+                f"{label}. {question[opt]}",
                 key=f"q{index}_{opt}",
                 use_container_width=True,
                 type="primary" if st.session_state.quiz_state['selected_answers'][selected_key] == opt else "secondary"
             ):
                 st.session_state.quiz_state['selected_answers'][selected_key] = opt
+                
+                # Verificar resposta imediatamente ao selecionar
+                check_answer(index, question)
                 st.rerun()
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Botão de submeter resposta individual
-    if st.session_state.quiz_state['selected_answers'][selected_key] is not None:
-        if st.button("✅ Verificar Resposta", key=f"submit_{index}"):
-            check_answer(index, question)
-    
-    # Mostrar feedback se já foi submetido
-    if st.session_state.quiz_state.get(f"feedback_{index}"):
-        feedback = st.session_state.quiz_state[f"feedback_{index}"]
+    # Mostrar feedback se já foi respondida
+    if selected_key in st.session_state.quiz_state['submitted_answers']:
+        feedback = st.session_state.quiz_state['submitted_answers'][selected_key]
         if feedback['correct']:
-            st.success(feedback['message'])
+            st.success(f"✅ {feedback['message']}")
         else:
-            st.error(feedback['message'])
+            st.error(f"❌ {feedback['message']}")
+    
+    # Botões de navegação - AGORA DENTRO DO CARD
+    col_prev, col_next = st.columns(2)
+    
+    with col_prev:
+        if st.button("⏮️ Anterior", 
+                    disabled=st.session_state.quiz_state['current_question'] == 0,
+                    use_container_width=True):
+            st.session_state.quiz_state['current_question'] -= 1
+            st.rerun()
+    
+    with col_next:
+        total = len(df)
+        current = st.session_state.quiz_state['current_question']
+        if st.button("Próxima ⏭️", 
+                    disabled=current >= total - 1,
+                    use_container_width=True):
+            st.session_state.quiz_state['current_question'] += 1
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def check_answer(index, question):
-    """Verifica se a resposta está correta"""
-    selected_key = f"q{index}_selected"
+    """Verifica se a resposta está correta e armazena o resultado"""
+    selected_key = f"q{index}"
     selected_answer = st.session_state.quiz_state['selected_answers'].get(selected_key)
     
     if selected_answer:
         correct = selected_answer == question['correct'].lower()
         
         if correct:
-            st.session_state.quiz_state['score'] += 1
-            message = f"✅ Correto! A resposta {selected_answer.upper()} está certa."
+            message = f"Correto! A resposta {selected_answer.upper()} está certa."
         else:
-            message = f"❌ Resposta {selected_answer.upper()} incorreta. A correta é {question['correct'].upper()}."
+            message = f"Resposta {selected_answer.upper()} incorreta. A correta é {question['correct'].upper()}."
         
         # Armazenar feedback
-        st.session_state.quiz_state[f"feedback_{index}"] = {
+        st.session_state.quiz_state['submitted_answers'][selected_key] = {
             'correct': correct,
             'message': message
         }
         
-        st.rerun()
-
-def display_stats():
-    """Exibe estatísticas do quiz"""
-    df = st.session_state.quiz_state['questions_df']
-    total = len(df)
-    score = st.session_state.quiz_state['score']
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f'<div class="stats-card">', unsafe_allow_html=True)
-        st.metric("Questões", f"{total}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f'<div class="stats-card">', unsafe_allow_html=True)
-        st.metric("Acertos", f"{score}/{total}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f'<div class="stats-card">', unsafe_allow_html=True)
-        percentage = (score / total * 100) if total > 0 else 0
-        st.metric("Percentual", f"{percentage:.1f}%")
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Contar questões respondidas
+        answered = len([k for k in st.session_state.quiz_state['submitted_answers'] 
+                       if k.startswith('q')])
+        st.session_state.quiz_state['answered_count'] = answered
 
 def reset_quiz():
     """Reseta o estado do quiz"""
     st.session_state.quiz_state = {
         'current_question': 0,
         'selected_answers': {},
-        'submitted': False,
-        'score': 0,
+        'submitted_answers': {},
         'questions_df': None,
-        'custom_mode': False
+        'custom_mode': False,
+        'total_questions': 0,
+        'answered_count': 0
     }
+
+def display_results():
+    """Exibe resultados ao final do quiz"""
+    df = st.session_state.quiz_state['questions_df']
+    total = len(df)
+    
+    # Contar acertos
+    correct_count = 0
+    for i in range(total):
+        key = f"q{i}"
+        if key in st.session_state.quiz_state['submitted_answers']:
+            if st.session_state.quiz_state['submitted_answers'][key]['correct']:
+                correct_count += 1
+    
+    st.markdown("---")
+    st.markdown("### 📊 Resultado Final")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("Total de Questões", total)
+    
+    with col2:
+        st.metric("Acertos", f"{correct_count}/{total}")
+    
+    percentage = (correct_count / total * 100) if total > 0 else 0
+    st.metric("Percentual", f"{percentage:.1f}%")
+    
+    if st.button("🔄 Reiniciar Quiz", use_container_width=True):
+        reset_quiz()
+        st.rerun()
 
 # Menu lateral
 with st.sidebar:
@@ -225,7 +256,7 @@ if menu == "🏠 Página Inicial":
         1. Na seção **Quiz**, escolha uma matéria
         2. Responda as questões
         3. Receba feedback imediato
-        4. Acompanhe seu desempenho
+        4. Acompanhe seu progresso
         
         ### Desenvolvido por
         
@@ -269,39 +300,33 @@ elif menu == "📝 Quiz":
                 file_path = os.path.join(QUESTIONS_FOLDER, selected_file)
                 
                 # Botão para carregar questões
-                if st.button("Carregar Questões") or st.session_state.quiz_state['questions_df'] is not None:
-                    if st.session_state.quiz_state['questions_df'] is None:
+                col_load, col_reset = st.columns([3, 1])
+                with col_load:
+                    if st.button("▶️ Iniciar Quiz", use_container_width=True):
                         df = load_questions(file_path)
-                    else:
-                        df = st.session_state.quiz_state['questions_df']
-                    
-                    if df is not None and len(df) > 0:
-                        # Controles de navegação
-                        col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
-                        
-                        with col2:
-                            if st.button("⏮️ Anterior", disabled=st.session_state.quiz_state['current_question'] == 0):
-                                st.session_state.quiz_state['current_question'] -= 1
-                                st.rerun()
-                        
-                        with col3:
-                            total = len(df)
-                            current = st.session_state.quiz_state['current_question']
-                            if st.button("Próxima ⏭️", disabled=current >= total - 1):
-                                st.session_state.quiz_state['current_question'] += 1
-                                st.rerun()
-                        
-                        # Exibir questão atual
-                        current_idx = st.session_state.quiz_state['current_question']
-                        display_question(df, current_idx)
-                        
-                        # Exibir estatísticas
-                        display_stats()
-                        
-                        # Botão para reiniciar
-                        if st.button("🔄 Reiniciar Quiz"):
-                            reset_quiz()
+                        if df is not None:
+                            st.success(f"Quiz '{selected_file}' carregado com {len(df)} questões!")
                             st.rerun()
+                
+                with col_reset:
+                    if st.button("🔄 Reiniciar", use_container_width=True):
+                        reset_quiz()
+                        st.rerun()
+                
+                # Se já houver questões carregadas
+                if st.session_state.quiz_state['questions_df'] is not None:
+                    df = st.session_state.quiz_state['questions_df']
+                    
+                    # Exibir questão atual
+                    current_idx = st.session_state.quiz_state['current_question']
+                    display_question(df, current_idx)
+                    
+                    # Verificar se é a última questão
+                    if current_idx == len(df) - 1:
+                        # Verificar se todas foram respondidas
+                        total_answered = st.session_state.quiz_state['answered_count']
+                        if total_answered == len(df):
+                            display_results()
 
 # Página de Estudo Customizado
 elif menu == "🔧 Estudo Customizado":
@@ -327,50 +352,25 @@ elif menu == "🔧 Estudo Customizado":
     
     if uploaded_file is not None:
         try:
-            # Carregar questões do arquivo enviado
-            df = pd.read_csv(uploaded_file, header=None, 
-                           names=["question", "a", "b", "c", "d", "correct"])
+            # Botão para carregar questões
+            if st.button("▶️ Iniciar Quiz Personalizado", use_container_width=True):
+                load_questions(uploaded_file, custom_mode=True)
+                st.rerun()
             
-            if df.empty:
-                st.warning("O arquivo está vazio.")
-            else:
-                # Botão para carregar questões
-                if st.button("▶️ Iniciar Quiz Personalizado"):
-                    load_questions(uploaded_file, custom_mode=True)
-                    st.rerun()
+            # Se já houver questões carregadas
+            if st.session_state.quiz_state['questions_df'] is not None:
+                df = st.session_state.quiz_state['questions_df']
                 
-                # Se já houver questões carregadas
-                if st.session_state.quiz_state['questions_df'] is not None:
-                    df = st.session_state.quiz_state['questions_df']
-                    
-                    # Controles de navegação
-                    col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
-                    
-                    with col2:
-                        if st.button("⏮️ Anterior", key="prev_custom", 
-                                   disabled=st.session_state.quiz_state['current_question'] == 0):
-                            st.session_state.quiz_state['current_question'] -= 1
-                            st.rerun()
-                    
-                    with col3:
-                        total = len(df)
-                        current = st.session_state.quiz_state['current_question']
-                        if st.button("Próxima ⏭️", key="next_custom", 
-                                   disabled=current >= total - 1):
-                            st.session_state.quiz_state['current_question'] += 1
-                            st.rerun()
-                    
-                    # Exibir questão atual
-                    current_idx = st.session_state.quiz_state['current_question']
-                    display_question(df, current_idx)
-                    
-                    # Exibir estatísticas
-                    display_stats()
-                    
-                    # Botão para reiniciar
-                    if st.button("🔄 Reiniciar Quiz", key="reset_custom"):
-                        reset_quiz()
-                        st.rerun()
+                # Exibir questão atual
+                current_idx = st.session_state.quiz_state['current_question']
+                display_question(df, current_idx)
+                
+                # Verificar se é a última questão
+                if current_idx == len(df) - 1:
+                    # Verificar se todas foram respondidas
+                    total_answered = st.session_state.quiz_state['answered_count']
+                    if total_answered == len(df):
+                        display_results()
         
         except Exception as e:
             st.error(f"Erro ao processar o arquivo: {e}")
