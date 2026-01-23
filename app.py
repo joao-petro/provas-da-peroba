@@ -111,7 +111,7 @@ def display_question(df, index):
         with col:
             # Criar uma chave única para cada botão de rádio
             if st.button(
-                f"{label}. {question[opt]}",
+                f"{label}) {question[opt]}",
                 key=f"q{index}_{opt}",
                 use_container_width=True,
                 type="primary" if st.session_state.quiz_state['selected_answers'][selected_key] == opt else "secondary"
