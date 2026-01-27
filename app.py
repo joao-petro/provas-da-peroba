@@ -257,6 +257,10 @@ if menu == "🏠 Página Inicial":
         2. Responda as questões
         3. Receba feedback imediato
         4. Acompanhe seu progresso
+                    
+        ### Problemas ou Sugestões?
+                    
+        Mande uma mensagem no Teams (GFGQ)
         
         ### Desenvolvido por
         
