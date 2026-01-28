@@ -62,12 +62,19 @@ QUESTIONS_FOLDER = "questoes"
 def load_questions(file_path, custom_mode=False):
     """Carrega questões do arquivo CSV"""
     try:
-        df = pd.read_csv(file_path, header=None, 
-                        names=["question", "a", "b", "c", "d", "correct"])
+        # Se for modo customizado (upload), usar o objeto diretamente
+        if custom_mode:
+            df = pd.read_csv(file_path, header=None, 
+                            names=["question", "a", "b", "c", "d", "correct"])
+        else:
+            # Se for arquivo local, usar o caminho
+            df = pd.read_csv(file_path, header=None, 
+                            names=["question", "a", "b", "c", "d", "correct"])
         
         # Limpeza dos dados
         df = df.dropna()
-        df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+        # Atualização: applymap está deprecated, usar map ou apply
+        df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
         
         # Resetar estado do quiz
         st.session_state.quiz_state = {
@@ -356,13 +363,25 @@ elif menu == "🔧 Estudo Customizado":
     
     if uploaded_file is not None:
         try:
-            # Botão para carregar questões
-            if st.button("▶️ Iniciar Quiz Personalizado", use_container_width=True):
-                load_questions(uploaded_file, custom_mode=True)
-                st.rerun()
+            # Botões de controle
+            col_load, col_reset = st.columns([3, 1])
             
-            # Se já houver questões carregadas
-            if st.session_state.quiz_state['questions_df'] is not None:
+            with col_load:
+                if st.button("▶️ Iniciar Quiz Personalizado", use_container_width=True):
+                    df = load_questions(uploaded_file, custom_mode=True)
+                    if df is not None:
+                        st.success(f"Quiz carregado com {len(df)} questões!")
+                        st.rerun()
+            
+            with col_reset:
+                if st.button("🔄 Reiniciar", use_container_width=True):
+                    reset_quiz()
+                    st.rerun()
+            
+            # Se já houver questões carregadas E for modo customizado
+            if (st.session_state.quiz_state['questions_df'] is not None and 
+                st.session_state.quiz_state['custom_mode']):
+                
                 df = st.session_state.quiz_state['questions_df']
                 
                 # Exibir questão atual
