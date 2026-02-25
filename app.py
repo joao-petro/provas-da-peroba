@@ -408,6 +408,30 @@ elif menu == "🔧 Estudo Customizado":
     **Importante**: O arquivo não deve ter cabeçalho!
     """)
     
+    # NOVO BLOCO ADICIONADO
+    st.markdown("""
+    ### 💡 Dica: Gerar questões com IA
+
+    Se você tiver um PDF com conteúdo de estudo, pode usar uma IA (como ChatGPT) para criar um quiz no formato correto. Copie o prompt abaixo e cole na IA junto com o arquivo PDF:
+
+    ```
+    Você é um especialista em elaboração de questões de concurso e avaliações técnicas. Com base no documento anexo, crie um quiz de 40 questões de múltipla escolha para estudo e revisão do conteúdo.
+    Regras para as questões:
+    Cada questão deve ter exatamente 4 alternativas (A, B, C, D), sendo apenas uma correta
+    Evite questões sobre datas, números de normas, artigos ou informações meramente decorativas — foque em conceitos, aplicações, interpretações e raciocínio sobre o conteúdo
+    Varie o nível de dificuldade: 30% fáceis, 50% intermediárias e 20% difíceis
+    Redija os distratores (alternativas erradas) de forma plausível, evitando alternativas obviamente incorretas
+    Distribua o gabarito de forma equilibrada entre as opções A, B, C e D (aproximadamente 10 questões cada)
+    Formato de saída:
+    Gere exclusivamente um arquivo CSV, sem texto adicional antes ou depois, seguindo exatamente este formato (com aspas duplas em todos os campos e vírgula como separador):
+    "Enunciado da questão","Opção A","Opção B","Opção C","Opção D","letra_correta"
+    "Texto da questão 1","Alternativa A","Alternativa B","Alternativa C","Alternativa D","B"
+    Atenção: A coluna letra_correta deve conter apenas a letra maiúscula correspondente à alternativa correta (A, B, C ou D).
+    ```
+
+    Após gerar as questões, salve a resposta como um arquivo CSV e faça o upload acima.
+    """)
+    
     uploaded_file = st.file_uploader(
         "Escolha um arquivo CSV",
         type=['csv'],
