@@ -356,6 +356,7 @@ elif menu == "📝 Quiz":
             st.warning(f"Nenhum arquivo CSV encontrado na pasta '{QUESTIONS_FOLDER}'.")
         else:
             # Seleção de matéria
+            csv_files.sort()  # Ordenar arquivos alfabeticamente
             selected_file = st.selectbox(
                 "Escolha a matéria:",
                 csv_files,
